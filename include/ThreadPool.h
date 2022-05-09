@@ -14,7 +14,7 @@ class ThreadPool {
 private:
   class ThreadWorker {
   private:
-    int m_id;
+    int m_id;   //wgl_wt:这里的m_id是什么？
     ThreadPool * m_pool;
   public:
     ThreadWorker(ThreadPool * pool, const int id)
@@ -26,11 +26,11 @@ private:
       bool dequeued;
       while (!m_pool->m_shutdown) {
         {
-          std::unique_lock<std::mutex> lock(m_pool->m_conditional_mutex);
+          std::unique_lock<std::mutex> lock(m_pool->m_conditional_mutex);  //wgl_wt: 这里为什么使用外围类的mutex？
           if (m_pool->m_queue.empty()) {
             m_pool->m_conditional_lock.wait(lock);
           }
-          dequeued = m_pool->m_queue.dequeue(func);
+          dequeued = m_pool->m_queue.dequeue(func);  //wgl_wt：？？？？？？？
         }
         if (dequeued) {
           func();
@@ -41,15 +41,15 @@ private:
 
   bool m_shutdown;
   SafeQueue<std::function<void()>> m_queue;
-  std::vector<std::thread> m_threads;
-  std::mutex m_conditional_mutex;
+  std::vector<std::thread> m_threads;    //线程集为什么用vector?
+  std::mutex m_conditional_mutex;         //
   std::condition_variable m_conditional_lock;
 public:
   ThreadPool(const int n_threads)
     : m_threads(std::vector<std::thread>(n_threads)), m_shutdown(false) {
   }
 
-  ThreadPool(const ThreadPool &) = delete;
+  ThreadPool(const ThreadPool &) = delete;  //禁用传入ThreadPool指针的构造函数，wgl_wt:此处的禁用是为了什么？
   ThreadPool(ThreadPool &&) = delete;
 
   ThreadPool & operator=(const ThreadPool &) = delete;
@@ -58,7 +58,7 @@ public:
   // Inits thread pool
   void init() {
     for (int i = 0; i < m_threads.size(); ++i) {
-      m_threads[i] = std::thread(ThreadWorker(this, i));
+      m_threads[i] = std::thread(ThreadWorker(this, i));   //wgl_wt:这个地方的猜测应该是重载括号运算符，让类成为线程运行函数
     }
   }
 
