@@ -6,11 +6,11 @@
 std::random_device rd;
 std::mt19937 mt(rd());
 std::uniform_int_distribution<int> dist(-1000, 1000);
-auto rnd = std::bind(dist, mt);
+auto rnd = std::bind(dist, mt); //-1000到1000的均匀分布随机数生成
 
 
 void simulate_hard_computation() {
-  std::this_thread::sleep_for(std::chrono::milliseconds(2000 + rnd()));
+  std::this_thread::sleep_for(std::chrono::milliseconds(2000 + rnd()));  //执行这个语句的线程休眠1~3s
 }
 
 // Simple function that adds multiplies two numbers and prints the result
