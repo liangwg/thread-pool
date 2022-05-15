@@ -10,12 +10,18 @@
 
 #include "SafeQueue.h"
 
+/*--线程什么时候会去取任务？--*/
+
+
 class ThreadPool {
 private:
+  /*-----ThreadWorker类-------
+  这个应该是具体的线程工作者的类
+  */
   class ThreadWorker {
   private:
-    int m_id;   //wgl_wt:这里的m_id是什么？
-    ThreadPool * m_pool;
+    int m_id;   //m_id是线程的编号id，[0,n_threads-1]
+    ThreadPool * m_pool; //线程所属的线程池
   public:
     ThreadWorker(ThreadPool * pool, const int id)
       : m_pool(pool), m_id(id) {
@@ -26,11 +32,11 @@ private:
       bool dequeued;
       while (!m_pool->m_shutdown) {
         {
-          std::unique_lock<std::mutex> lock(m_pool->m_conditional_mutex);  //wgl_wt: 这里为什么使用外围类的mutex？
+          std::unique_lock<std::mutex> lock(m_pool->m_conditional_mutex);  //这里是对共享的任务队列的访问，同时任务队列的空满也是条件变量堵塞线程的判断条件
           if (m_pool->m_queue.empty()) {
             m_pool->m_conditional_lock.wait(lock);
           }
-          dequeued = m_pool->m_queue.dequeue(func);  //wgl_wt：？？？？？？？
+          dequeued = m_pool->m_queue.dequeue(func);  
         }
         if (dequeued) {
           func();
@@ -41,7 +47,7 @@ private:
 
   bool m_shutdown;
   SafeQueue<std::function<void()>> m_queue;
-  std::vector<std::thread> m_threads;    //线程集为什么用vector?
+  std::vector<std::thread> m_threads;    //wgl_wt:线程集为什么用vector?
   std::mutex m_conditional_mutex;         //
   std::condition_variable m_conditional_lock;
 public:
@@ -49,7 +55,7 @@ public:
     : m_threads(std::vector<std::thread>(n_threads)), m_shutdown(false) {
   }
 
-  ThreadPool(const ThreadPool &) = delete;  //禁用传入ThreadPool指针的构造函数，wgl_wt:此处的禁用是为了什么？
+  ThreadPool(const ThreadPool &) = delete;  //禁用传入ThreadPool指针的构造函数，wgl_wt:此处的禁用是为了什么？是为了防止线程池复制
   ThreadPool(ThreadPool &&) = delete;
 
   ThreadPool & operator=(const ThreadPool &) = delete;
@@ -58,7 +64,7 @@ public:
   // Inits thread pool
   void init() {
     for (int i = 0; i < m_threads.size(); ++i) {
-      m_threads[i] = std::thread(ThreadWorker(this, i));   //wgl_wt:这个地方的猜测应该是重载括号运算符，让类成为线程运行函数
+      m_threads[i] = std::thread(ThreadWorker(this, i));   
     }
   }
 
@@ -75,16 +81,49 @@ public:
   }
 
   // Submit a function to be executed asynchronously by the pool
+  /*------submit函数-----
+  参数：
+    F&& f ，要提交的任务函数；
+    Args&&... args，任务函数的传入参数，可变
+    
+  返回值：
+    返回一个能获取提交的任务函数执行结果的future对象
+    
+  作用：
+    接收一个任务函数，将任务函数放入到任务队列中，并返回一个能获取该任务函数返回值的future对象
+    
+  注意点：
+    1. 由于任务函数的参数和返回值都是不固定的，在设计任务队列时，是不太好定义队列的函数类型的，因此实现部分对任务函数进行包装，统一成<void()>类型
+    
+  -----------------------------------------
+  
+  */
   template<typename F, typename...Args>
+  //wgl_wt: 这里的f(args...)是什么意思？
   auto submit(F&& f, Args&&... args) -> std::future<decltype(f(args...))> {
+    
     // Create a function with bounded parameters ready to execute
+    //这一步将有参任务函数f,bind()成无参任务函数func
     std::function<decltype(f(args...))()> func = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
+    
     // Encapsulate it into a shared ptr in order to be able to copy construct / assign 
-    auto task_ptr = std::make_shared<std::packaged_task<decltype(f(args...))()>>(func);
+    auto task_ptr = std::make_shared<std::packaged_task<decltype(f(args...))()>>(func);  //wgl_wt:这里很好奇为什么要传入func，func和所声明的共享指针类型也不同啊？
+    
+    //这里如果不用共享指针，可以如下来写：
+    /*
+     std::packaged_task<declytpe(f(args...))()> mytask(func);
+     std::function<void()> wrapper_func=[mytask](){
+       mytask();
+     }
+     后面类似，最后
+     return mytask.get_future();
+    */
+   
+    
 
     // Wrap packaged task into void function
     std::function<void()> wrapper_func = [task_ptr]() {
-      (*task_ptr)(); 
+      (*task_ptr)();   //在这个里面实现任务函数
     };
 
     // Enqueue generic wrapper function
@@ -94,6 +133,6 @@ public:
     m_conditional_lock.notify_one();
 
     // Return future from promise
-    return task_ptr->get_future();
+    return task_ptr->get_future();   
   }
 };
