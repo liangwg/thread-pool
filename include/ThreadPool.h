@@ -10,15 +10,22 @@
 
 #include "SafeQueue.h"
 
-/*--线程什么时候会去取任务？--*/
+/*--
+线程什么时候开始工作？
+只在线程池初始化的时候线程才开始从任务队列中拿任务，那线程任务完成后去哪里拿？
+线程满是怎么判断的？
+--*/
 
 
 class ThreadPool {
 private:
-  /*-----ThreadWorker类-------
-  这个应该是具体的线程工作者的类
-  */
+ 
   class ThreadWorker {
+   /*-----ThreadWorker类-------
+     类型：仿函数
+     功能：完成线程对队列中任务的获取
+     方式：ThreadWorker tw(参数); tw();
+  */
   private:
     int m_id;   //m_id是线程的编号id，[0,n_threads-1]
     ThreadPool * m_pool; //线程所属的线程池
@@ -26,7 +33,8 @@ private:
     ThreadWorker(ThreadPool * pool, const int id)
       : m_pool(pool), m_id(id) {
     }
-
+    /*-----operator()()--
+    */
     void operator()() {
       std::function<void()> func;
       bool dequeued;
@@ -64,7 +72,7 @@ public:
   // Inits thread pool
   void init() {
     for (int i = 0; i < m_threads.size(); ++i) {
-      m_threads[i] = std::thread(ThreadWorker(this, i));   
+      m_threads[i] = std::thread(ThreadWorker(this, i)); //这里实际上等价于ThreadWorker tw=ThreadWorker(this,i); thread(tw);
     }
   }
 
@@ -99,7 +107,7 @@ public:
   
   */
   template<typename F, typename...Args>
-  //wgl_wt: 这里的f(args...)是什么意思？
+ 
   auto submit(F&& f, Args&&... args) -> std::future<decltype(f(args...))> {
     
     // Create a function with bounded parameters ready to execute
