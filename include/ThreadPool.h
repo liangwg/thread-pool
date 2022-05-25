@@ -39,6 +39,9 @@ private:
       std::function<void()> func;
       bool dequeued;
       while (!m_pool->m_shutdown) {
+          /*
+          !!!!此处是一个循环，某个线程一旦接收这个伪函数运行，就会一直循环在这里从任务队列中取任务函数并运行。
+          */
         {
           std::unique_lock<std::mutex> lock(m_pool->m_conditional_mutex);  //这里是对共享的任务队列的访问，同时任务队列的空满也是条件变量堵塞线程的判断条件
           if (m_pool->m_queue.empty()) {
@@ -55,7 +58,7 @@ private:
 
   bool m_shutdown;
   SafeQueue<std::function<void()>> m_queue;
-  std::vector<std::thread> m_threads;    //wgl_wt:线程集为什么用vector?
+  std::vector<std::thread> m_threads;    
   std::mutex m_conditional_mutex;         //
   std::condition_variable m_conditional_lock;
 public:
