@@ -10,6 +10,11 @@
 
 #include "SafeQueue.h"
 
+/*--
+线程什么时候开始工作？
+只在线程池初始化的时候线程才开始从任务队列中拿任务，那线程任务完成后去哪里拿？
+线程满是怎么判断的？
+--*/
 
 
 class ThreadPool {
@@ -54,7 +59,7 @@ private:
   bool m_shutdown;
   SafeQueue<std::function<void()>> m_queue;
   std::vector<std::thread> m_threads;    
-  std::mutex m_conditional_mutex;         
+  std::mutex m_conditional_mutex;         //
   std::condition_variable m_conditional_lock;
 public:
   ThreadPool(const int n_threads)
@@ -100,6 +105,8 @@ public:
     
   注意点：
     1. 由于任务函数的参数和返回值都是不固定的，在设计任务队列时，是不太好定义队列的函数类型的，因此实现部分对任务函数进行包装，统一成<void()>类型
+    2. 统一成<void()>类型需要两步：第一步是将有参变成无参（bind函数），第二步是将有返回值变成无返回值（用packaged_task包装，目的是获得函数的返回值，
+    然后定义一个<void()>函数类型的变量，在变量中运行函数）。
     
   -----------------------------------------
   
