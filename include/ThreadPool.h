@@ -59,7 +59,7 @@ private:
   bool m_shutdown;
   SafeQueue<std::function<void()>> m_queue;
   std::vector<std::thread> m_threads;    
-  std::mutex m_conditional_mutex;         //
+  std::mutex m_conditional_mutex;         
   std::condition_variable m_conditional_lock;
 public:
   ThreadPool(const int n_threads)
